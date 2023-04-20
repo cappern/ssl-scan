@@ -31,66 +31,61 @@ if ($outputFile -eq "")
 # Funksjon for å sjekke om en port er åpen på en enhet
 function Check-Port($ipAddress, $port)
 {
-    Write-Debug "Checking port $port on $ipAddress"
-    $socket = New-Object Net.Sockets.TcpClient
-    $asyncResult = $socket.BeginConnect($ipAddress, $port, $null, $null)
-    $waitHandle = $asyncResult.AsyncWaitHandle
-    try
+    Write-Host "Checking port $port on $ipAddress..."
+    $testResult = Test-NetConnection -ComputerName $ipAddress -Port $port -InformationLevel Quiet
+    if ($testResult.TcpTestSucceeded)
     {
-        if ($waitHandle.WaitOne(1000, $false))
-        {
-            $socket.EndConnect($asyncResult) | Out-Null
-            Write-Debug "Port $port is open on $ipAddress"
-            return $true
-        }
-        else
-        {
-            Write-Debug "Port $port is closed on $ipAddress"
-            return $false
-        }
+        Write-Host "Port $port is open on $ipAddress"
+        return $true
     }
-    catch
+    else
     {
-        Write-Debug "Port $port is closed on $ipAddress (exception)"
+        Write-Host "Port $port is closed on $ipAddress"
         return $false
     }
-    finally
-    {
-        $socket.Dispose()
-        $waitHandle.Dispose()
-    }
 }
+
 
 # Funksjon for å hente SSL-sertifikatet fra en enhet
 function Get-SSLInfo($ipAddress, $port)
 {
-    Write-Debug "Getting SSL info for port $port on $ipAddress"
-    $tcpClient = New-Object System.Net.Sockets.TcpClient
-    try
+    Write-Host "Getting SSL info for port $port on $ipAddress..."
+    $testResult = Test-NetConnection -ComputerName $ipAddress -Port $port -InformationLevel Quiet
+    if ($testResult.TcpTestSucceeded)
     {
-        $tcpClient.Connect($ipAddress, $port)
-        $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, { param($sender, $cert, $chain, $sslPolicyErrors) $true })
-        $sslStream.AuthenticateAsClient($ipAddress)
-        $cert = $sslStream.RemoteCertificate
-        if($cert -ne $null)
+        $tcpClient = New-Object System.Net.Sockets.TcpClient
+        try
         {
-            $subject = $cert.Subject
-            $issuer = $cert.Issuer
-            $validFrom = $cert.GetEffectiveDateString()
-            $validTo = $cert.GetExpirationDateString()
-            return $subject + "," + $issuer + "," + $validFrom + "," + $validTo
+            $tcpClient.Connect($ipAddress, $port)
+            $sslStream = New-Object System.Net.Security.SslStream($tcpClient.GetStream(), $false, { param($sender, $cert, $chain, $sslPolicyErrors) $true })
+            $sslStream.AuthenticateAsClient($ipAddress)
+            $cert = $sslStream.RemoteCertificate
+            if($cert -ne $null)
+            {
+                $subject = $cert.Subject
+                $issuer = $cert.Issuer
+                $validFrom = $cert.GetEffectiveDateString()
+                $validTo = $cert.GetExpirationDateString()
+                return $subject + "," + $issuer + "," + $validFrom + "," + $validTo
+            }
+        }
+        catch
+        {
+            Write-Host "Error getting SSL info for port $port on $ipAddress: $_.Exception.Message"
+            return $null
+        }
+        finally
+        {
+            $tcpClient.Dispose()
         }
     }
-    catch
+    else
     {
-        Write-Debug "Error getting SSL info for port $port on $ipAddress: $_.Exception.Message"
+        Write-Host "Port $port is closed on $ipAddress, skipping SSL check."
         return $null
     }
-    finally
-    {
-        $tcpClient.Dispose()
-    }
 }
+
 
 # Skanne en enkelt IP-adresse
 function Scan-IPAddress($ipAddress, $ports)

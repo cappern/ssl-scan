@@ -1,0 +1,2 @@
+|| ADDRESS |||| SUBJECT |||| ISSUER |||| VALID FROM |||| VALID TO |||| SERIAL NUMBER |||| FINGERPRINT |||| KEY SIZE ||
+| www.volvo.no:443 || www.volvoce.com || Sectigo RSA Organization Validation Secure Server CA || Nov 17 00:00:00 2022 GMT || Nov 17 23:59:59 2023 GMT || 8D08E7F1D6C719A2F576DCE3A4555CC8 || BF:F1:F4:89:9E:89:BD:84:49:28:EE:65:06:64:38:FE:0E:B1:9C:1D || 2048 |

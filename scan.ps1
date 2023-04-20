@@ -31,6 +31,7 @@ if ($outputFile -eq "")
 # Funksjon for å sjekke om en port er åpen på en enhet
 function Check-Port($ipAddress, $port)
 {
+    Write-Debug "Checking port $port on $ipAddress"
     $socket = New-Object Net.Sockets.TcpClient
     $asyncResult = $socket.BeginConnect($ipAddress, $port, $null, $null)
     $waitHandle = $asyncResult.AsyncWaitHandle
@@ -39,15 +40,18 @@ function Check-Port($ipAddress, $port)
         if ($waitHandle.WaitOne(1000, $false))
         {
             $socket.EndConnect($asyncResult) | Out-Null
+            Write-Debug "Port $port is open on $ipAddress"
             return $true
         }
         else
         {
+            Write-Debug "Port $port is closed on $ipAddress"
             return $false
         }
     }
     catch
     {
+        Write-Debug "Port $port is closed on $ipAddress (exception)"
         return $false
     }
     finally
@@ -60,6 +64,7 @@ function Check-Port($ipAddress, $port)
 # Funksjon for å hente SSL-sertifikatet fra en enhet
 function Get-SSLInfo($ipAddress, $port)
 {
+    Write-Debug "Getting SSL info for port $port on $ipAddress"
     $tcpClient = New-Object System.Net.Sockets.TcpClient
     try
     {
@@ -78,6 +83,7 @@ function Get-SSLInfo($ipAddress, $port)
     }
     catch
     {
+        Write-Debug "Error getting SSL info for port $port on $ipAddress: $_.Exception.Message"
         return $null
     }
     finally
@@ -89,6 +95,7 @@ function Get-SSLInfo($ipAddress, $port)
 # Skanne en enkelt IP-adresse
 function Scan-IPAddress($ipAddress, $ports)
 {
+    Write-Debug "Scanning IP address $ipAddress"
     $results = @()
     foreach ($port in $ports)
     {
@@ -100,11 +107,57 @@ function Scan-IPAddress($ipAddress, $ports)
             $result | Add-Member -MemberType NoteProperty -Name "Port" -Value $port
             $result | Add-Member -MemberType NoteProperty -Name "SSL Certificate" -Value $sslInfo
             $results += $result
-            }
         }
-
-return $results
-
+    }
+    return $results
 }
+# Skanne subnettet
+function Scan-Subnet($subnet, $ports)
+{
+    Write-Debug "Scanning subnet $subnet"
+    $results = @()
+    for ($i = 1; $i -le 255; $i++)
+    {
+        $ipAddress = $subnet + "." + $i
+        Write-Debug "Scanning IP address $ipAddress"
+        $ipResults = Scan-IPAddress $ipAddress $ports
+        $results += $ipResults
+    }
+    return $results
+}
+# Hovedprogram
+if ($subnet -ne "" -and $ipAddress -ne "")
+{
+    Write-Error "You can only specify one of the 'subnet' and 'ipAddress' parameters."
+}
+elseif ($subnet -eq "" -and $ipAddress -eq "")
+{
+    $ipAddress = Read-Host "Enter the IP address to scan:"
+}
+elseif ($subnet -ne "")
+{
+    $ipAddress = $subnet
+}
+
+if ($ports.Length -eq 0)
+{
+    $ports += "443"
+}
+
+if ($ipAddress -like "*/*")
+{
+    # Skanne subnettet
+    $results = Scan-Subnet $ipAddress $ports
+}
+else
+{
+    # Skanne enkelt IP-adresse
+    $results = Scan-IPAddress $ipAddress $ports
+}
+
+# Lagre resultatene til CSV-filen
+$results | Export-Csv $outputFile -NoTypeInformation
+
+Write-Host "SSL certificate scan complete. Results saved to $outputFile."
 
 

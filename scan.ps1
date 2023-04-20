@@ -1,11 +1,32 @@
-param (
-    [string]$subnet = "",
-    [string]$ipAddress = "",
-    [string]$outputFile = "ssl-certificates.csv"
-)
+# Spør brukeren om subnettet eller IP-adressen som skal skannes
+$subnet = Read-Host "Enter the subnet or IP address to scan (in CIDR format, e.g. 10.10.10.0/24):"
 
-# Angi listen over porter du vil sjekke
-$ports = @("443","8443","1880")
+# Spør brukeren om portene som skal skannes
+$ports = @()
+$defaultPort = "443"
+while ($true)
+{
+    $port = Read-Host "Enter a port to scan (default is $defaultPort, press Enter to continue):"
+    if ($port -eq "")
+    {
+        if ($ports.Length -eq 0)
+        {
+            $ports += $defaultPort
+        }
+        break
+    }
+    else
+    {
+        $ports += $port
+    }
+}
+
+# Spør brukeren om filnavnet for resultatene
+$outputFile = Read-Host "Enter the output file name (default is ssl-certificates.csv):"
+if ($outputFile -eq "")
+{
+    $outputFile = "ssl-certificates.csv"
+}
 
 # Funksjon for å sjekke om en port er åpen på en enhet
 function Check-Port($ipAddress, $port)
@@ -79,36 +100,11 @@ function Scan-IPAddress($ipAddress, $ports)
             $result | Add-Member -MemberType NoteProperty -Name "Port" -Value $port
             $result | Add-Member -MemberType NoteProperty -Name "SSL Certificate" -Value $sslInfo
             $results += $result
+            }
         }
-    }
-    return $results
+
+return $results
+
 }
 
-# Skanne subnettet
-function Scan-Subnet($subnet, $ports)
-{
-    $results = @()
-    for ($i = 1; $i -le 255; $i++)
-    {
-        $ipAddress = $subnet + "." + $i
-        $ipResults = Scan-IPAddress $ipAddress $ports
-        $results += $ipResults
-    }
-    return $results
-}
 
-# Hovedprogram
-if ($ipAddress
-{
-# Skanne enkelt IP-adresse
-$results = Scan-IPAddress $ipAddress $ports
-}
-else
-{
-# Skanne subnettet
-$results = Scan-Subnet $subnet $ports
-}
-
-Lagre resultatene til CSV-filen
-
-$results | Export-Csv $outputFile -NoTypeInformation
